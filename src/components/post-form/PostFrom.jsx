@@ -20,15 +20,55 @@ export default function PostForm({ post }) {
     const userData = useSelector((state) => state.auth.userData);
 
     const submit = async (data) => {
-        // Submission logic remains the same
+        if (post) {
+            const file = data.image[0] ? await databaseService.uploadFile(data.image[0]) : null;
+
+            if (file) {
+                databaseService.deleteFile(post.featuredImage);
+            }
+
+            const dbPost = await databaseService.updatePost(post.$id, {
+                ...data,
+                featuredImage: file ? file.$id : undefined,
+            });
+
+            if (dbPost) {
+                navigate(`/post/${dbPost.$id}`);
+            }
+        } else {
+            const file = await databaseService.uploadFile(data.image[0]);
+
+            if (file) {
+                const fileId = file.$id;
+                data.featuredImage = fileId;
+                const dbPost = await databaseService.createPost({ ...data, userId: userData.$id });
+
+                if (dbPost) {
+                    navigate(`/post/${dbPost.$id}`);
+                }
+            }
+        }
     };
 
     const slugTransform = useCallback((value) => {
-        // Slug transformation logic remains the same
+        if (value && typeof value === "string")
+            return value
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-zA-Z\d\s]+/g, "-")
+                .replace(/\s/g, "-");
+
+        return "";
     }, []);
 
     React.useEffect(() => {
-        // Effect logic remains the same
+        const subscription = watch((value, { name }) => {
+            if (name === "title") {
+                setValue("slug", slugTransform(value.title), { shouldValidate: true });
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, [watch, slugTransform, setValue]);
 
     return (
